@@ -1,0 +1,78 @@
+/* ==============================================
+   🌓 THEME + TOP BAR LAYOUT
+   ============================================== */
+.top-bar {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+/* Place theme toggle on left */
+.left-controls {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+}
+
+/* Place language selector on right */
+.right-controls {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+}
+
+/* Toggle button */
+.theme-toggle {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.3s ease, color 0.3s ease;
+  color: var(--text);
+  font-size: 1.5rem;
+}
+
+/* Light hover */
+.theme-toggle:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+/* In dark mode, make the icon bright */
+:root[data-theme='dark'] .theme-toggle {
+  color: #fff;
+}
+
+/* ==============================================
+   🌗 THEME VARIABLES
+   ============================================== */
+:root[data-theme='light'] {
+  --bg: #ffffff;
+  --text: #111;
+  --card-bg: #f9f9f9;
+  --border: #ddd;
+  --primary: #4facfe;
+  --secondary: #00f2fe;
+  --accent: #2c3e50;
+  --muted-text: #5a6c7d;
+}
+
+:root[data-theme='dark'] {
+  --bg: #121212;
+  --text: #e5e5e5;
+  --card-bg: #1f1f1f;
+  --border: #333;
+  --primary: #4facfe;
+  --secondary: #00f2fe;
+  --accent: #9cd3ff;
+  --muted-text: #a0a0a0;
+}
+
+html, body {
+  transition: background-color 0.4s ease, color 0.4s ease;
+}
