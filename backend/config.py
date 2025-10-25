@@ -1,4 +1,3 @@
-# config.py - Configuration and Constants
 import os
 import pathlib
 from dotenv import load_dotenv
@@ -19,8 +18,11 @@ class Config:
     APP_DESCRIPTION = "Extract allergens and nutrition from food product PDFs (multi-language, OCR + LLM)"
     APP_VERSION = "2.0.0"
 
-    # CORS
-    CORS_ORIGINS = ["*"]  # Adjust for production
+    # CORS Configuration - Fixed for production
+    CORS_ORIGINS = os.getenv(
+        "CORS_ORIGINS",
+        "http://localhost:5173,http://localhost:3000,https://be-aware-nutrition.vercel.app,https://be-aware-nutrition-git-main-farouk-azizs-projects.vercel.app,https://*.vercel.app"
+    ).split(",")
 
     # Upload limits
     MAX_UPLOAD_SIZE_BYTES = int(os.getenv("MAX_UPLOAD_SIZE_BYTES", 15 * 1024 * 1024))
