@@ -29,7 +29,8 @@ export default function App() {
 
   const toggleTheme = () => setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/upload';
+  // ✅ Fixed: Base URL without /upload
+  const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
   const handleLanguageChange = (lang) => {
     setLanguage(lang);
@@ -63,10 +64,11 @@ export default function App() {
 
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('language', language); // ✅ Added language parameter
 
     try {
       const xhr = new XMLHttpRequest();
-      xhr.open('POST', API_URL, true);
+      xhr.open('POST', `${API_URL}/upload`, true); // ✅ Fixed: Added /upload endpoint
 
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) {
@@ -106,7 +108,7 @@ export default function App() {
   const handleDownloadPDF = async () => {
     if (!result?.data) return;
     try {
-      const response = await fetch(`${API_URL.replace('/upload', '')}/generate-pdf`, {
+      const response = await fetch(`${API_URL}/generate-pdf`, { // ✅ Fixed: Correct endpoint
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
