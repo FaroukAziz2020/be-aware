@@ -1,6 +1,7 @@
 # llm.py - LLM Client for OpenRouter/DeepSeek
 import time
 import logging
+import os
 from openai import OpenAI
 
 from config import Config
@@ -16,16 +17,32 @@ class LLMClient:
         self.client = None
         self.configured = False
 
-        if Config.OPENROUTER_API_KEY:
+        # Debug: Check if API key exists
+        api_key = Config.OPENROUTER_API_KEY
+        logger.info(f"🔍 DEBUG: API key exists: {bool(api_key)}")
+        if api_key:
+            logger.info(f"🔍 DEBUG: API key length: {len(api_key)}")
+            logger.info(f"🔍 DEBUG: API key starts with: {api_key[:10]}...")
+
+        # Also check environment directly
+        env_key = os.getenv("OPENROUTER_API_KEY")
+        logger.info(f"🔍 DEBUG: ENV key exists: {bool(env_key)}")
+
+        if api_key:
             try:
+                logger.info("🔍 DEBUG: Creating OpenAI client...")
+                logger.info(f"🔍 DEBUG: Base URL: https://openrouter.ai/api/v1")
+
                 self.client = OpenAI(
-                    api_key=Config.OPENROUTER_API_KEY,
+                    api_key=api_key,
                     base_url="https://openrouter.ai/api/v1"
                 )
                 self.configured = True
                 logger.info("✅ OpenRouter (DeepSeek) client configured")
             except Exception as e:
                 logger.exception("⚠️ Failed to configure OpenRouter client: %s", e)
+                logger.error(f"🔍 DEBUG: Exception type: {type(e).__name__}")
+                logger.error(f"🔍 DEBUG: Exception args: {e.args}")
         else:
             logger.warning("⚠️ OPENROUTER_API_KEY not set. LLM calls will fail until configured.")
 
@@ -62,6 +79,9 @@ class LLMClient:
         max_retries = max_retries or Config.LLM_MAX_RETRIES
         timeout = timeout or Config.LLM_TIMEOUT
 
+        logger.info(f"🔍 DEBUG: Using model: {model}")
+        logger.info(f"🔍 DEBUG: Temperature: {temperature}, Max tokens: {max_tokens}")
+
         for attempt in range(1, max_retries + 1):
             try:
                 logger.info("🤖 LLM request (attempt %s/%s) model=%s", attempt, max_retries, model)
@@ -80,6 +100,8 @@ class LLMClient:
 
             except Exception as e:
                 logger.warning("⚠️ LLM attempt %s failed: %s", attempt, e)
+                logger.error(f"🔍 DEBUG: Exception type: {type(e).__name__}")
+                logger.error(f"🔍 DEBUG: Full exception: {repr(e)}")
                 if attempt < max_retries:
                     wait = 2 ** (attempt - 1)
                     logger.info("⏳ waiting %s seconds before retry", wait)
