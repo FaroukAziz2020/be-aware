@@ -30,7 +30,7 @@ export default function App() {
   const toggleTheme = () => setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
 
   // ✅ Fixed: Base URL without /upload
-  const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+  const API_URL = import.meta.env.VITE_API_URL || 'http://138.68.92.157:8000';
 
   const handleLanguageChange = (lang) => {
     setLanguage(lang);
