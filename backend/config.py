@@ -1,4 +1,5 @@
 import os
+import platform
 import pathlib
 from dotenv import load_dotenv
 
@@ -8,6 +9,13 @@ if not env_path.exists():
     env_path = None
 
 load_dotenv(dotenv_path=env_path)
+
+
+# Determine default Tesseract path based on operating system
+if platform.system() == 'Windows':
+    DEFAULT_TESSERACT_PATH = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+else:
+    DEFAULT_TESSERACT_PATH = "tesseract"
 
 
 class Config:
@@ -25,7 +33,7 @@ class Config:
     MAX_UPLOAD_SIZE_BYTES = int(os.getenv("MAX_UPLOAD_SIZE_BYTES", 15 * 1024 * 1024))
 
     # OCR Configuration
-    TESSERACT_CMD = os.getenv("TESSERACT_CMD", r"C:\Program Files\Tesseract-OCR\tesseract.exe")
+    TESSERACT_CMD = os.getenv("TESSERACT_CMD", DEFAULT_TESSERACT_PATH)
     OCR_LANGUAGES = os.getenv(
         "OCR_LANGUAGES",
         "eng+deu+fra+spa+ita+por+hun+pol+ces+slk+ron+bul+hrv+slv+est+lav+lit"
