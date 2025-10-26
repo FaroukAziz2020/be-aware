@@ -7,9 +7,9 @@ Upload any food product **PDF** (text-based or scanned) to instantly detect **10
 
 ## 🌐 Live Demo
 
-**Frontend:** [https://be-aware.vercel.app](https://be-aware.vercel.app)  
+**Frontend:** [https://be-aware-nutrition-qz7dgxgt1-farouk-azizs-projects.vercel.app](https://be-aware-nutrition-qz7dgxgt1-farouk-azizs-projects.vercel.app)  
 **Backend API:** [https://be-aware-backend.onrender.com](https://be-aware-backend.onrender.com)  
-*(Replace with your actual deployed URLs after deployment)*
+**Developer Dashboard:** [https://be-aware-backend.onrender.com/developer](https://be-aware-backend.onrender.com/developer)
 
 ---
 
@@ -29,6 +29,7 @@ Upload any food product **PDF** (text-based or scanned) to instantly detect **10
 | **Progress Feedback** | Real-time upload + analysis progress bar |
 | **Error Handling** | User-friendly toasts for all states |
 | **Developer Dashboard** | Built-in `/developer` endpoint to test all services |
+| **Docker Deployment** | Containerized backend for reliable OCR deployment |
 
 ---
 
@@ -48,6 +49,7 @@ Upload any food product **PDF** (text-based or scanned) to instantly detect **10
 - **pdf2image + Pytesseract** – OCR for image-based/scanned PDFs
 - **OpenRouter + DeepSeek** – LLM for structured JSON extraction
 - **ReportLab** – Generate downloadable PDF reports with localization
+- **Docker** – Containerized deployment with system dependencies
 - **uvicorn** – ASGI server
 - **python-dotenv** – Environment configuration
 
@@ -57,12 +59,16 @@ Upload any food product **PDF** (text-based or scanned) to instantly detect **10
 
 ### Prerequisites
 
-- **Python 3.9+**
+- **Python 3.11+**
 - **Node.js 18+**
 - **Tesseract OCR** installed:
   - **Windows**: [Download installer](https://github.com/UB-Mannheim/tesseract/wiki)
   - **macOS**: `brew install tesseract`
-  - **Linux**: `sudo apt install tesseract-ocr tesseract-ocr-eng tesseract-ocr-deu tesseract-ocr-fra`
+  - **Linux**: `sudo apt install tesseract-ocr tesseract-ocr-eng tesseract-ocr-deu tesseract-ocr-fra tesseract-ocr-hun`
+- **Poppler** (for PDF to image conversion):
+  - **Windows**: [Download here](https://github.com/oschwartz10612/poppler-windows/releases) and add to PATH
+  - **macOS**: `brew install poppler`
+  - **Linux**: `sudo apt install poppler-utils`
 
 ---
 
@@ -90,14 +96,14 @@ pip install -r requirements.txt
 # Required: OpenRouter API Key
 OPENROUTER_API_KEY=your_openrouter_api_key_here
 
-# Optional: Tesseract path (Windows only, if not in default location)
-TESSERACT_CMD=C:\Program Files\Tesseract-OCR\tesseract.exe
-
 # Optional: OCR languages (defaults shown below)
 OCR_LANGUAGES=eng+deu+fra+spa+ita+por+hun+pol+ces+slk+ron+bul+hrv+slv+est+lav+lit
 
 # Optional: Upload limits
 MAX_UPLOAD_SIZE_BYTES=15728640  # 15MB default
+
+# Optional: CORS origins (for production)
+CORS_ORIGINS=*
 ```
 
 **Get your OpenRouter API key:**
@@ -134,7 +140,7 @@ npm install
 **Create `.env` in `frontend/`:**
 
 ```env
-VITE_API_URL=http://127.0.0.1:8000/upload
+VITE_API_URL=http://127.0.0.1:8000
 ```
 
 **Start dev server:**
@@ -182,9 +188,11 @@ Try these endpoints:
 **Python Packages** (`requirements.txt`):
 ```txt
 fastapi==0.104.1
-uvicorn==0.24.0
+uvicorn[standard]==0.24.0
 python-dotenv==1.0.0
 openai==1.3.5
+httpx==0.24.1
+httpcore==0.17.3
 pytesseract==0.3.10
 pdf2image==1.16.3
 PyPDF2==3.0.1
@@ -195,13 +203,10 @@ python-multipart==0.0.6
 **System Dependencies:**
 - **Tesseract OCR** - For text extraction from images
 - **Poppler** - For PDF to image conversion
-  - **Windows**: [Download here](https://github.com/oschwartz10612/poppler-windows/releases) and add to PATH
-  - **macOS**: `brew install poppler`
-  - **Linux**: `sudo apt install poppler-utils`
 
 ---
 
-## 🌍 Deployment Guide
+## 🌐 Deployment Guide
 
 ### Frontend → Vercel (Free)
 
@@ -216,14 +221,64 @@ python-multipart==0.0.6
 5. **Add environment variable:**
    ```
    Name: VITE_API_URL
-   Value: https://your-backend.onrender.com/upload
+   Value: https://be-aware-backend.onrender.com
    ```
-   *(Add this after backend is deployed)*
+   ⚠️ **Important:** No trailing slash, no `/upload` path
 6. Click **Deploy**
 
 ---
 
-### Backend → Render (Free Tier)
+### Backend → Render with Docker (Free Tier)
+
+#### Step 1: Create Dockerfile
+
+Create `backend/Dockerfile`:
+
+```dockerfile
+FROM python:3.13-slim
+
+# Install system dependencies for OCR
+RUN apt-get update && apt-get install -y \
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    tesseract-ocr-deu \
+    tesseract-ocr-fra \
+    tesseract-ocr-hun \
+    poppler-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy and install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY . .
+
+# Expose port
+EXPOSE 10000
+
+# Start command
+CMD uvicorn app:app --host 0.0.0.0 --port ${PORT:-10000}
+```
+
+#### Step 2: Create .dockerignore
+
+Create `backend/.dockerignore`:
+
+```
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+.env
+venv/
+.venv/
+```
+
+#### Step 3: Deploy to Render
 
 1. Go to [render.com](https://render.com) → **New Web Service**
 2. Connect your GitHub repository
@@ -233,32 +288,25 @@ python-multipart==0.0.6
    Region: Frankfurt (or closest to you)
    Branch: main
    Root Directory: backend
-   Runtime: Python 3
-   Build Command: pip install -r requirements.txt
-   Start Command: uvicorn app:app --host 0.0.0.0 --port $PORT
+   Environment: Docker
    Instance Type: Free
    ```
 
-4. **Add environment variables:**
+4. **Add environment variables in Render dashboard:**
    ```
    OPENROUTER_API_KEY=your_actual_key_here
    OCR_LANGUAGES=eng+deu+fra+hun
+   CORS_ORIGINS=*
    ```
 
-5. **Create `Aptfile` in `backend/` directory:**
-   ```
-   tesseract-ocr
-   tesseract-ocr-eng
-   tesseract-ocr-deu
-   tesseract-ocr-fra
-   tesseract-ocr-hun
-   tesseract-ocr-spa
-   tesseract-ocr-ita
-   poppler-utils
-   ```
+5. Click **Create Web Service**
+6. Wait 5-10 minutes for first deployment
 
-6. Click **Create Web Service**
-7. Wait 5-10 minutes for first deployment
+**✅ Why Docker?**
+- Guarantees Tesseract OCR installation
+- Consistent environment across local and production
+- No Aptfile needed (system packages installed in Dockerfile)
+- More reliable than native builds
 
 **⚠️ Note:** Free tier has cold starts (~50 seconds). First request may be slow.
 
@@ -268,13 +316,14 @@ python-multipart==0.0.6
 
 After backend is deployed on Render:
 
-1. Copy your Render backend URL: `https://your-app.onrender.com`
+1. Copy your Render backend URL: `https://be-aware-backend.onrender.com`
 2. Go to Vercel Dashboard → Your Project → **Settings** → **Environment Variables**
-3. Edit `VITE_API_URL`:
+3. Update `VITE_API_URL`:
    ```
-   VITE_API_URL=https://your-app.onrender.com/upload
+   VITE_API_URL=https://be-aware-backend.onrender.com
    ```
-4. **Redeploy** (Vercel will auto-redeploy)
+   ⚠️ **No `/upload` suffix needed** - the frontend adds endpoints automatically
+4. **Redeploy** frontend (Vercel → Deployments → Redeploy)
 
 ---
 
@@ -292,7 +341,7 @@ After backend is deployed on Render:
 ### Example: Upload PDF
 
 ```bash
-curl -X POST "http://127.0.0.1:8000/upload" \
+curl -X POST "https://be-aware-backend.onrender.com/upload" \
   -F "file=@product_label.pdf" \
   -F "language=en"
 ```
@@ -336,34 +385,50 @@ curl -X POST "http://127.0.0.1:8000/upload" \
 
 ---
 
-## 🐛 Troubleshooting
+## 🛠 Troubleshooting
 
 ### Backend Issues
 
 **LLM Not Working?**
-- ✅ Check `.env` has `OPENROUTER_API_KEY`
-- ✅ Verify key at [openrouter.ai](https://openrouter.ai)
+- ✅ Check environment variables in Render dashboard
+- ✅ Verify `OPENROUTER_API_KEY` is set correctly
 - ✅ Check `/developer` dashboard for status
-- ✅ Look at terminal logs for errors
+- ✅ Look at Render logs for errors
 
-**OCR Not Working?**
-- ✅ Install Tesseract OCR
-- ✅ Windows: Set `TESSERACT_CMD` in `.env`
-- ✅ Check `/developer` dashboard for Tesseract status
+**OCR Not Working on Render?**
+- ✅ Ensure you're using Docker deployment (not native)
+- ✅ Dockerfile includes all Tesseract packages
+- ✅ Check Render logs for Tesseract installation
+- ✅ Visit `/developer` to verify OCR status
+
+**Local OCR Not Working?**
+- ✅ Install Tesseract OCR for your OS
+- ✅ Windows: Tesseract auto-detected at default path
+- ✅ macOS/Linux: Tesseract should be in PATH
 - ✅ Test: `tesseract --version` in terminal
 
 **Poppler Error (pdf2image)?**
-- ✅ Install Poppler (see dependencies section)
+- ✅ Install Poppler for your OS
 - ✅ Windows: Add Poppler `bin/` folder to PATH
 - ✅ Restart terminal after installation
+
+**httpx Compatibility Error?**
+- ✅ Use pinned versions: `httpx==0.24.1`, `httpcore==0.17.3`
+- ✅ These are compatible with `openai==1.3.5`
 
 ### Frontend Issues
 
 **API Connection Failed?**
-- ✅ Check backend is running on `http://127.0.0.1:8000`
-- ✅ Verify `VITE_API_URL` in frontend `.env`
+- ✅ Check backend is running
+- ✅ Verify `VITE_API_URL` in Vercel environment variables
+- ✅ Ensure no trailing slash in API URL
 - ✅ Check CORS settings in `config.py`
 - ✅ Open browser console (F12) for errors
+
+**405 Method Not Allowed?**
+- ✅ Verify `VITE_API_URL` points to correct backend
+- ✅ URL should be base domain only (no `/upload`)
+- ✅ Redeploy frontend after changing env vars
 
 **Dark Mode Not Persisting?**
 - ✅ Check browser allows localStorage
@@ -380,13 +445,14 @@ curl -X POST "http://127.0.0.1:8000/upload" \
 ## 🎯 Project Structure
 
 ```
-Developer_Test/
+be-aware/
 │
 ├── backend/
 │   ├── .env                      # Environment variables
 │   ├── .gitignore               
+│   ├── .dockerignore             # Docker ignore file
+│   ├── Dockerfile                # Docker configuration
 │   ├── requirements.txt          # Python dependencies
-│   ├── Aptfile                   # System packages for Render
 │   ├── app.py                    # FastAPI application
 │   ├── config.py                 # Configuration management
 │   ├── llm.py                    # LLM client
@@ -398,15 +464,15 @@ Developer_Test/
 │   ├── .env                      # API URL
 │   ├── src/
 │   │   ├── main.jsx              # React entry point
-│   │   ├── App.jsx               # Main app component
-│   │   ├── App.css               # Global styles
+│   │   ├── app.jsx               # Main app component
+│   │   ├── app.css               # Global styles
 │   │   ├── i18n.js               # Internationalization
 │   │   └── components/           # React components
 │   │       ├── FileUploader.jsx
 │   │       ├── ProgressBar.jsx
 │   │       ├── AllergensDisplay.jsx
 │   │       ├── NutritionDisplay.jsx
-│   │       ├── ResultsSection.jsx
+│   │       ├── ResultSection.jsx
 │   │       ├── LanguageSelector.jsx
 │   │       └── ThemeToggle.jsx
 │   ├── index.html                # HTML template
@@ -417,6 +483,49 @@ Developer_Test/
 └── README.md                     # This file
 ```
 
+---
+
+## 🔧 Key Configuration Files
+
+### backend/config.py
+- Auto-detects OS for Tesseract path (Windows vs Linux)
+- Configures LLM settings (model, temperature, tokens)
+- Sets OCR languages and upload limits
+- Manages CORS origins
+
+### backend/Dockerfile
+- Uses Python 3.13-slim base image
+- Installs Tesseract + language packs
+- Installs Poppler for PDF conversion
+- Sets up application environment
+
+### frontend/.env
+- `VITE_API_URL` - Backend base URL (no trailing slash)
+
+---
+
+## 💡 Tips & Best Practices
+
+### Development
+- Use the `/developer` dashboard to verify all services before testing uploads
+- Check backend logs for detailed error messages
+- Test with both text-based and scanned PDFs
+- Try different languages to verify OCR support
+
+### Deployment
+- **Always use Docker for backend** - guarantees OCR reliability
+- Pin all package versions to avoid breaking changes
+- Set environment variables before deploying
+- Monitor Render logs during first deployment
+- Test `/health` endpoint after deployment
+
+### Performance
+- Free tier has cold starts - first request takes ~50s
+- Subsequent requests are fast (~3-5s)
+- Consider paid tier for production use
+- Optimize PDF size before upload (max 15MB)
+
+---
 
 ## 👤 Author
 
