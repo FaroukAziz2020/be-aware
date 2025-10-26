@@ -24,15 +24,3 @@ EXPOSE 10000
 
 # Start command
 CMD uvicorn app:app --host 0.0.0.0 --port ${PORT:-10000}
-```
-
-2. Create `backend/.dockerignore`:
-```
-__pycache__
-*.pyc
-*.pyo
-*.pyd
-.Python
-.env
-venv/
-.venv/
