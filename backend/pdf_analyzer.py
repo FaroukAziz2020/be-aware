@@ -13,7 +13,9 @@ from config import Config
 logger = logging.getLogger("be_aware_backend")
 
 # Configure pytesseract
-pytesseract.pytesseract.tesseract_cmd = Config.TESSERACT_CMD
+if Config.TESSERACT_CMD:
+    pytesseract.pytesseract.tesseract_cmd = Config.TESSERACT_CMD
+    logger.info(f"🔍 DEBUG: Tesseract CMD set to: {Config.TESSERACT_CMD}")
 
 
 class PDFAnalyzer:
@@ -45,43 +47,64 @@ class PDFAnalyzer:
         try:
             logger.info("📄 Trying PyPDF2 text extraction")
             reader = PdfReader(io.BytesIO(pdf_bytes))
+            logger.info(f"🔍 DEBUG: PDF has {len(reader.pages)} pages")
+
             for i, page in enumerate(reader.pages):
                 try:
                     page_text = page.extract_text() or ""
-                except Exception:
+                except Exception as e:
+                    logger.warning(f"⚠️ Page {i + 1} extraction error: {e}")
                     page_text = ""
                 if page_text.strip():
                     text += f"\n--- Page {i + 1} ---\n{page_text}"
+                    logger.info(f"🔍 DEBUG: Page {i + 1} extracted {len(page_text)} chars")
+
             if text.strip():
                 logger.info("✅ PyPDF2 extracted %d characters", len(text))
+            else:
+                logger.info("⚠️ PyPDF2 extracted 0 characters - will use OCR")
         except Exception as e:
-            logger.warning("⚠️ PyPDF2 extraction error: %s", e)
+            logger.exception("⚠️ PyPDF2 extraction error: %s", e)
 
         # If not enough text, use OCR
         if not text.strip() or len(text.strip()) < Config.MIN_TEXT_LENGTH:
             ocr_used = True
-            logger.info("📷 Falling back to OCR (languages=%s)", Config.OCR_LANGUAGES)
+            logger.info(f"📷 Falling back to OCR (languages={Config.OCR_LANGUAGES})")
+            logger.info(f"🔍 DEBUG: Text length was {len(text.strip())}, minimum required: {Config.MIN_TEXT_LENGTH}")
+
             try:
+                logger.info("🔍 DEBUG: Starting PDF to image conversion...")
                 images = convert_from_bytes(
                     pdf_bytes,
                     dpi=Config.PDF_DPI,
                     fmt=Config.PDF_FORMAT
                 )
-                logger.info("🖼️ Converted PDF to %d images for OCR", len(images))
+                logger.info(f"✅ Converted PDF to {len(images)} images for OCR")
 
                 for idx, img in enumerate(images):
-                    logger.info("📸 OCR page %d/%d", idx + 1, len(images))
-                    page_text = pytesseract.image_to_string(
-                        img,
-                        lang=Config.OCR_LANGUAGES,
-                        config=f"--psm {Config.TESSERACT_PSM} --oem {Config.TESSERACT_OEM}"
-                    )
-                    if page_text and page_text.strip():
-                        text += f"\n--- Page {idx + 1} (OCR) ---\n{page_text}"
+                    logger.info(f"📸 Processing page {idx + 1}/{len(images)} with OCR...")
+                    logger.info(f"🔍 DEBUG: Image size: {img.size}, mode: {img.mode}")
+
+                    try:
+                        page_text = pytesseract.image_to_string(
+                            img,
+                            lang=Config.OCR_LANGUAGES,
+                            config=f"--psm {Config.TESSERACT_PSM} --oem {Config.TESSERACT_OEM}"
+                        )
+                        logger.info(f"✅ Page {idx + 1} OCR extracted {len(page_text)} characters")
+
+                        if page_text and page_text.strip():
+                            text += f"\n--- Page {idx + 1} (OCR) ---\n{page_text}"
+                            logger.info(f"🔍 DEBUG: Page {idx + 1} sample text: {page_text[:100]}...")
+                    except Exception as e:
+                        logger.exception(f"❌ OCR failed for page {idx + 1}: {e}")
+                        raise
 
                 logger.info("✅ OCR extraction finished (total chars=%d)", len(text))
             except Exception as e:
                 logger.exception("❌ OCR failed: %s", e)
+                logger.error(f"🔍 DEBUG: Exception type: {type(e).__name__}")
+                logger.error(f"🔍 DEBUG: Exception details: {str(e)}")
                 raise RuntimeError(f"OCR processing failed: {e}")
 
         if not text.strip():
@@ -99,11 +122,15 @@ class PDFAnalyzer:
         Returns:
             Dictionary with allergens, nutritional_values, and metadata
         """
+        logger.info("🤖 Starting LLM extraction...")
+        logger.info(f"🔍 DEBUG: Input text length: {len(text)} characters")
+
         # Truncate text if too long
         max_chars = Config.MAX_TEXT_CHARS
         if len(text) > max_chars:
             mid = max_chars // 2
             text = text[:mid] + "\n\n[... middle content truncated ...]\n\n" + text[-mid:]
+            logger.info(f"🔍 DEBUG: Text truncated to {len(text)} characters")
 
         prompt = f"""
 You are a multilingual food label analyzer. Extract allergen and nutritional data from this text.
@@ -135,7 +162,10 @@ Text:
 {text}"""
 
         try:
+            logger.info("🔍 DEBUG: Calling LLM...")
             raw = self.llm_client.call(prompt)
+            logger.info(f"✅ LLM returned response length: {len(raw)}")
+            logger.info(f"🔍 DEBUG: LLM response preview: {raw[:200]}...")
         except Exception as e:
             logger.exception("❌ LLM call failed: %s", e)
             return self._empty_result(error="LLM extraction failed")
@@ -266,10 +296,14 @@ Text:
                         filename, language, len(pdf_bytes))
 
             # Extract text
+            logger.info("🔍 DEBUG: Starting text extraction...")
             text, ocr_used = self.extract_text_from_pdf(pdf_bytes)
+            logger.info(f"✅ Text extraction complete. OCR used: {ocr_used}, Text length: {len(text)}")
 
             # LLM extraction
+            logger.info("🔍 DEBUG: Starting LLM extraction...")
             extracted = self.extract_data_from_text(text)
+            logger.info("✅ LLM extraction complete")
 
             # Attach metadata
             extracted.setdefault("metadata", {})
@@ -280,6 +314,7 @@ Text:
                 "extracted_text_length": len(text)
             })
 
+            logger.info("✅ Analysis complete for %s", filename)
             return extracted
 
         except Exception as e:
