@@ -35,4 +35,5 @@ ENV PYTHONUNBUFFERED=1
 ENV PORT=10000
 
 # Launch FastAPI app
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "10000"]
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+
